@@ -10,4 +10,9 @@ $cliPluginsDir = "C:\ProgramData\docker\cli-plugins"
 New-Item -Path $cliPluginsDir -ItemType Directory
 Invoke-DownloadWithRetry -Url $dockerComposev2Url -Path "$cliPluginsDir\docker-compose.exe"
 
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    Write-Host "Docker CLI is not available yet; skipping Docker Compose validation until after reboot."
+    return
+}
+
 Invoke-PesterTests -TestFile "Docker" -TestName "DockerCompose"

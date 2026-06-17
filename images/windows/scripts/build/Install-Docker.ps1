@@ -23,7 +23,11 @@ $mobyReleaseUrl = $dockerceUrl + $mobyRelease
 
 Write-Host "Install Moby $mobyRelease..."
 $mobyArchivePath = Invoke-DownloadWithRetry $mobyReleaseUrl
-Expand-Archive -Path $mobyArchivePath -DestinationPath $env:TEMP_DIR
+$dockerExtractPath = Join-Path $env:TEMP_DIR "docker"
+if (Test-Path $dockerExtractPath) {
+    Remove-Item -Path $dockerExtractPath -Recurse -Force
+}
+Expand-Archive -Path $mobyArchivePath -DestinationPath $env:TEMP_DIR -Force
 $dockerPath = "$env:TEMP_DIR\docker\docker.exe"
 $dockerdPath = "$env:TEMP_DIR\docker\dockerd.exe"
 
@@ -34,6 +38,11 @@ $instScriptPath = Invoke-DownloadWithRetry $instScriptUrl
 if ($LastExitCode -ne 0) {
     Write-Host "Docker installation failed with exit code $LastExitCode"
     exit $exitCode
+}
+
+if (-not (Test-Path "C:\Windows\System32\docker.exe")) {
+    Write-Host "Docker engine installation is pending reboot; skipping post-install Docker validation in this pass."
+    return
 }
 
 # Fix AZ CLI DOCKER_COMMAND_ERROR

@@ -4,7 +4,7 @@
 ################################################################################
 
 # Retrieve the latest major version of the CodeQL Action to use in the base URL for downloading the bundle.
-$releases = Invoke-RestMethod -Uri "https://api.github.com/repos/github/codeql-action/releases"
+$releases = Invoke-RestMethod -Uri "https://api.github.com/repos/github/codeql-action/releases" -Headers (Get-GithubApiHeaders)
 
 # Get the release tags starting with v[0-9] and sort them in descending order, then parse the first one to get the major version.
 $latestTag = $releases.tag_name |

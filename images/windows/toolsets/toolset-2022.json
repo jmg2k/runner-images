@@ -150,7 +150,6 @@
         "workloads": [
             "Component.Dotfuscator",
             "Component.Linux.CMake",
-            "Component.UnityEngine.x64",
             "Component.Unreal.Android",
             "Component.Xamarin",
             "Microsoft.Component.VC.Runtime.UCRTSDK",

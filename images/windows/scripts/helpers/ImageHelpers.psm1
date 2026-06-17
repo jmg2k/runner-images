@@ -34,6 +34,7 @@ Export-ModuleMember -Function @(
     'Expand-7ZipArchive'
     'Get-WindowsUpdateStates'
     'Invoke-ScriptBlockWithRetry'
+    'Get-GithubApiHeaders'
     'Get-GithubReleasesByVersion'
     'Resolve-GithubReleaseAssetUrl'
     'Get-ChecksumFromGithubRelease'

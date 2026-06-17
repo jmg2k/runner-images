@@ -98,11 +98,23 @@ Function Install-VisualStudio {
                 exit $exitCode
             }
 
+            $vsLogsArchivePath = Join-Path $env:TEMP "vslogs.zip"
+            if (-not (Test-Path -LiteralPath $vsLogsArchivePath) -and -not [string]::IsNullOrWhiteSpace($env:TEMP_DIR)) {
+                $vsLogsArchivePath = Join-Path $env:TEMP_DIR "vslogs.zip"
+            }
+            if (-not (Test-Path -LiteralPath $vsLogsArchivePath)) {
+                throw "Visual Studio log archive was not found in TEMP or TEMP_DIR."
+            }
+
+            $vsLogsPath = Join-Path (Split-Path -Parent $vsLogsArchivePath) "vslogs"
+            if (Test-Path -LiteralPath $vsLogsPath) {
+                Remove-Item -LiteralPath $vsLogsPath -Recurse -Force
+            }
+
             # Expand the zip file
-            Expand-Archive -Path "$env:TEMP\vslogs.zip" -DestinationPath "$env:TEMP_DIR\vslogs"
+            Expand-Archive -Path $vsLogsArchivePath -DestinationPath $vsLogsPath
 
             # Print logs
-            $vsLogsPath = "$env:TEMP_DIR\vslogs"
             $vsLogs = Get-ChildItem -Path $vsLogsPath -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object -ExpandProperty FullName
             foreach ($log in $vsLogs) {
                 Write-Host "============================"

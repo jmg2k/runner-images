@@ -52,15 +52,28 @@ get_toolset_value() {
     echo "$(jq -r "$query" $toolset_path)"
 }
 
+github_api_curl() {
+    local github_api_headers=()
+
+    if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+        github_api_headers=(
+            -H "Authorization: Bearer ${GITHUB_TOKEN}"
+            -H "Accept: application/vnd.github+json"
+            -H "X-GitHub-Api-Version: 2022-11-28"
+        )
+    fi
+
+    curl "${github_api_headers[@]}" -fsSL "$@"
+}
+
 get_github_releases_by_version() {
     local repo=$1
     local version=${2:-".+"}
     local allow_pre_release=${3:-false}
     local with_assets_only=${4:-false}
-
     page_size="100"
 
-    json=$(curl -fsSL "https://api.github.com/repos/${repo}/releases?per_page=${page_size}")
+    json=$(github_api_curl "https://api.github.com/repos/${repo}/releases?per_page=${page_size}")
 
     if [[ -z "$json" ]]; then
         echo "Failed to get releases" >&2

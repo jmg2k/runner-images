@@ -40,6 +40,19 @@ function Disable-WindowsUpdate {
     }
 }
 
+function Set-UtcTimeZone {
+    Write-Host "Setting timezone to UTC"
+    tzutil.exe /s "UTC"
+
+    Write-Host "Disabling automatic time zone updates"
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\tzautoupdate" -Name Start -Value 4 -Force
+    Get-Service -Name tzautoupdate -ErrorAction SilentlyContinue | Stop-Service -Force -ErrorAction SilentlyContinue
+
+    Write-Host "Disabling geolocation service"
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\lfsvc\Service\Configuration" -Name Status -Value 0 -Force
+    Get-Service -Name lfsvc -ErrorAction SilentlyContinue | Stop-Service -Force -ErrorAction SilentlyContinue
+}
+
 # Enable $ErrorActionPreference='Stop' for AllUsersAllHosts
 Add-Content -Path $profile.AllUsersAllHosts -Value '$ErrorActionPreference="Stop"'
 
@@ -54,6 +67,8 @@ Set-ItemProperty -Path HKLM:\System\CurrentControlSet\Services\WaaSMedicSvc -Nam
 
 Write-Host "Disable Windows Update"
 Disable-WindowsUpdate
+
+Set-UtcTimeZone
 
 Write-Host "Disable UAC"
 Disable-UserAccessControl
@@ -75,5 +90,15 @@ Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name
 # Expand disk size of OS drive
 $driveLetter = "C"
 $size = Get-PartitionSupportedSize -DriveLetter $driveLetter
-Resize-Partition -DriveLetter $driveLetter -Size $size.SizeMax
+$partition = Get-Partition -DriveLetter $driveLetter
+$minimumGrowthBytes = 1MB
+
+if ($null -eq $partition -or $null -eq $size) {
+    Write-Host "Skipping OS drive resize because partition information for $driveLetter was not available."
+} elseif (($size.SizeMax - $partition.Size) -lt $minimumGrowthBytes) {
+    Write-Host "Skipping OS drive resize because the remaining extendable space is less than 1 MB."
+} else {
+    Resize-Partition -DriveLetter $driveLetter -Size $size.SizeMax
+}
+
 Get-Volume | Select-Object DriveLetter, SizeRemaining, Size | Sort-Object DriveLetter

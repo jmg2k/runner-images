@@ -46,6 +46,12 @@ done
 
 plugins=$(get_toolset_value '.docker.plugins[] .plugin')
 for plugin in $plugins; do
+    plugin_package="docker-${plugin}-plugin"
+    if dpkg-query -W -f='${Status}' "$plugin_package" 2>/dev/null | grep -q "install ok installed"; then
+        echo "$plugin_package is already installed; skipping GitHub asset download"
+        continue
+    fi
+
     version=$(get_toolset_value ".docker.plugins[] | select(.plugin == \"$plugin\") | .version")
     filter=$(get_toolset_value ".docker.plugins[] | select(.plugin == \"$plugin\") | .asset")
     url=$(resolve_github_release_asset_url "docker/$plugin" "endswith(\"$filter\")" "$version")
@@ -88,7 +94,7 @@ fi
 
 # Download amazon-ecr-credential-helper
 aws_latest_release_url="https://api.github.com/repos/awslabs/amazon-ecr-credential-helper/releases/latest"
-aws_helper_url=$(curl -fsSL "${aws_latest_release_url}" | jq -r '.body' | awk -F'[()]' '/linux-'"${docker_arch}"'/ {print $2}')
+aws_helper_url=$(github_api_curl "${aws_latest_release_url}" | jq -r '.body' | awk -F'[()]' '/linux-'"${docker_arch}"'/ {print $2}')
 aws_helper_binary_path=$(download_with_retry "$aws_helper_url")
 
 # Supply chain security - amazon-ecr-credential-helper

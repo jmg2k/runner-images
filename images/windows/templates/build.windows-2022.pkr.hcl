@@ -1,6 +1,6 @@
 build {
-  sources = ["source.azure-arm.image"]
-  name = "windows-2022"
+  sources = ["source.proxmox-clone.image"]
+  name = "windows-2022-proxmox"
 
   provisioner "powershell" {
     inline = [
@@ -10,11 +10,14 @@ build {
   }
 
   provisioner "file" {
-    destination = "${var.image_folder}\\"
-    sources     = [
-      "${path.root}/../assets",
-      "${path.root}/../scripts",
-      "${path.root}/../toolsets"
+    source      = "./.tmp/payload.zip"
+    destination = "${var.image_folder}\\payload.zip"
+  }
+
+  provisioner "powershell" {
+    inline = [
+      "Expand-Archive -Path '${var.image_folder}\\payload.zip' -DestinationPath '${var.image_folder}' -Force",
+      "Remove-Item '${var.image_folder}\\payload.zip'"
     ]
   }
 
@@ -58,7 +61,7 @@ build {
   }
 
   provisioner "powershell" {
-    environment_vars = ["IMAGE_VERSION=${var.image_version}", "IMAGE_OS=${var.image_os}", "AGENT_TOOLSDIRECTORY=${var.agent_tools_directory}", "IMAGEDATA_FILE=${var.imagedata_file}", "IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
+    environment_vars = ["IMAGE_VERSION=${var.image_version}", "IMAGE_OS=${var.image_os}", "AGENT_TOOLSDIRECTORY=${var.agent_tools_directory}", "IMAGEDATA_FILE=${var.imagedata_file}", "IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}", "GITHUB_TOKEN=${var.github_token}"]
     execution_policy = "unrestricted"
     scripts          = [
       "${path.root}/../scripts/build/Configure-WindowsDefender.ps1",
@@ -80,11 +83,22 @@ build {
   }
 
   provisioner "powershell" {
-    inline = ["Set-Service -Name wlansvc -StartupType Manual", "if ($(Get-Service -Name wlansvc).Status -eq 'Running') { Stop-Service -Name wlansvc}"]
+    inline = [
+      "$wlanService = Get-Service -Name wlansvc -ErrorAction SilentlyContinue",
+      "if ($null -ne $wlanService) { Set-Service -Name wlansvc -StartupType Manual; if ($wlanService.Status -eq 'Running') { Stop-Service -Name wlansvc } } else { Write-Host 'wlansvc service not present; skipping WLAN configuration.' }"]
   }
 
   provisioner "powershell" {
-    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
+    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}", "GITHUB_TOKEN=${var.github_token}"]
+    scripts          = ["${path.root}/../scripts/build/Install-Docker.ps1"]
+  }
+
+  provisioner "windows-restart" {
+    restart_timeout = "30m"
+  }
+
+  provisioner "powershell" {
+    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}", "GITHUB_TOKEN=${var.github_token}"]
     scripts          = [
       "${path.root}/../scripts/build/Install-Docker.ps1",
       "${path.root}/../scripts/build/Install-DockerWinCred.ps1",
@@ -102,7 +116,7 @@ build {
   provisioner "powershell" {
     elevated_password = "${var.install_password}"
     elevated_user     = "${var.install_user}"
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
+    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}", "GITHUB_TOKEN=${var.github_token}"]
     scripts           = [
       "${path.root}/../scripts/build/Install-VisualStudio.ps1",
       "${path.root}/../scripts/build/Install-KubernetesTools.ps1"
@@ -117,7 +131,7 @@ build {
 
   provisioner "powershell" {
     pause_before     = "2m0s"
-    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
+    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}", "GITHUB_TOKEN=${var.github_token}"]
     scripts          = [
       "${path.root}/../scripts/build/Install-Wix.ps1",
       "${path.root}/../scripts/build/Install-WDK.ps1",
@@ -133,7 +147,7 @@ build {
 
   provisioner "powershell" {
     execution_policy = "remotesigned"
-    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
+    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}", "GITHUB_TOKEN=${var.github_token}"]
     scripts          = ["${path.root}/../scripts/build/Install-ServiceFabricSDK.ps1"]
   }
 
@@ -146,7 +160,7 @@ build {
   }
 
   provisioner "powershell" {
-    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
+    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}", "GITHUB_TOKEN=${var.github_token}"]
     scripts          = [
       "${path.root}/../scripts/build/Install-ActionsCache.ps1",
       "${path.root}/../scripts/build/Install-Ruby.ps1",
@@ -159,6 +173,7 @@ build {
       "${path.root}/../scripts/build/Install-Pipx.ps1",
       "${path.root}/../scripts/build/Install-Git.ps1",
       "${path.root}/../scripts/build/Install-GitHub-CLI.ps1",
+      "${path.root}/../scripts/build/Install-GitHubActionsRunner.ps1",
       "${path.root}/../scripts/build/Install-PHP.ps1",
       "${path.root}/../scripts/build/Install-Rust.ps1",
       "${path.root}/../scripts/build/Install-Sbt.ps1",
@@ -193,14 +208,15 @@ build {
       "${path.root}/../scripts/build/Install-RootCA.ps1",
       "${path.root}/../scripts/build/Install-MongoDB.ps1",
       "${path.root}/../scripts/build/Install-CodeQLBundle.ps1",
-      "${path.root}/../scripts/build/Configure-Diagnostics.ps1"
+      "${path.root}/../scripts/build/Configure-Diagnostics.ps1",
+      "${path.root}/../scripts/build/Enable-CloudbaseInit.ps1"
     ]
   }
 
   provisioner "powershell" {
     elevated_password = "${var.install_password}"
     elevated_user     = "${var.install_user}"
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
+    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}", "GITHUB_TOKEN=${var.github_token}"]
     scripts           = [
       "${path.root}/../scripts/build/Install-WindowsUpdates.ps1",
       "${path.root}/../scripts/build/Configure-DynamicPort.ps1",
@@ -267,12 +283,20 @@ build {
     restart_timeout = "10m"
   }
 
+  provisioner "file" {
+    source      = "${path.root}/../../../base-images/windows/answer-files/sysprep-unattend.xml"
+    destination = "C:\\Windows\\System32\\Sysprep\\unattend.xml"
+  }
+
   provisioner "powershell" {
     inline = [
-      "if( Test-Path $env:SystemRoot\\System32\\Sysprep\\unattend.xml ){ rm $env:SystemRoot\\System32\\Sysprep\\unattend.xml -Force}",
-      "& $env:SystemRoot\\System32\\Sysprep\\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit",
+      "& $env:SystemRoot\\System32\\Sysprep\\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit /unattend:$env:SystemRoot\\System32\\Sysprep\\unattend.xml",
       "while($true) { $imageState = Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Setup\\State | Select ImageState; if($imageState.ImageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { Write-Output $imageState.ImageState; Start-Sleep -s 10 } else { break } }"
     ]
   }
 
+  provisioner "powershell" {
+    skip_clean = true
+    inline     = ["shutdown /s /t 10 /f /d p:4:1 /c 'Packer Shutdown'"]
+  }
 }

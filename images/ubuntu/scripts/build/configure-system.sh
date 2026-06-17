@@ -9,6 +9,9 @@ source $HELPER_SCRIPT_FOLDER/os.sh
 
 mv -f /imagegeneration/post-generation /opt
 
+echo "Setting timezone to UTC"
+timedatectl set-timezone UTC
+
 echo "chmod -R 777 /usr/share"
 chmod -R 777 /usr/share
 echo "chmod -R 777 /opt"

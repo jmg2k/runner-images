@@ -14,8 +14,14 @@ Describe "WindowsFeatures" {
         (Get-Command -Name 'wsl') | Should -BeTrue
     }
 
-    it "Check WLAN service is stopped" {
-        (Get-Service -Name wlansvc).Status | Should -Be "Stopped"
+    it "Check WLAN service is stopped when present" {
+        $wlanService = Get-Service -Name wlansvc -ErrorAction SilentlyContinue
+        if ($null -eq $wlanService) {
+            Set-ItResult -Skipped -Because "wlansvc service is not installed on this image."
+            return
+        }
+
+        $wlanService.Status | Should -Be "Stopped"
     }
 }
 

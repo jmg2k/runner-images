@@ -144,6 +144,19 @@ function Install-Binary {
     }
 }
 
+function Get-GithubApiHeaders {
+    $headers = @{
+        Accept = "application/vnd.github+json"
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) {
+        $headers.Authorization = "Bearer $env:GITHUB_TOKEN"
+        $headers."X-GitHub-Api-Version" = "2022-11-28"
+    }
+
+    return $headers
+}
+
 function Invoke-DownloadWithRetry {
     <#
     .SYNOPSIS
@@ -181,6 +194,11 @@ function Invoke-DownloadWithRetry {
     )
 
     if (-not $Path) {
+        $basePath = $env:TEMP_DIR
+        if ([string]::IsNullOrWhiteSpace($basePath)) {
+            $basePath = $env:TEMP
+        }
+
         $invalidChars = [IO.Path]::GetInvalidFileNameChars() -join ''
         $re = "[{0}]" -f [RegEx]::Escape($invalidChars)
         $fileName = [IO.Path]::GetFileName($Url) -replace $re
@@ -188,7 +206,8 @@ function Invoke-DownloadWithRetry {
         if ([String]::IsNullOrEmpty($fileName)) {
             $fileName = [System.IO.Path]::GetRandomFileName()
         }
-        $Path = Join-Path -Path "${env:TEMP_DIR}" -ChildPath $fileName
+
+        $Path = Join-Path -Path $basePath -ChildPath $fileName
     }
 
     Write-Host "Downloading package from $Url to $Path..."
@@ -236,7 +255,13 @@ function Get-ToolsetContent {
         environment variable and returns the content as a PowerShell object.
     #>
 
-    $toolsetPath = Join-Path $env:IMAGE_FOLDER "toolset.json"
+    $imageFolder = $env:IMAGE_FOLDER
+    if ([string]::IsNullOrWhiteSpace($imageFolder)) {
+        $imageFolder = "C:\image"
+        Write-Host "IMAGE_FOLDER is not set. Falling back to $imageFolder."
+    }
+
+    $toolsetPath = Join-Path $imageFolder "toolset.json"
     $toolsetJson = Get-Content -Path $toolsetPath -Raw
     ConvertFrom-Json -InputObject $toolsetJson
 }
@@ -659,6 +684,7 @@ function Get-GithubReleasesByVersion {
     )
 
     $localCacheFile = Join-Path ${env:TEMP_DIR} "github-releases_$($Repository -replace "/", "_").json"
+    $headers = Get-GithubApiHeaders
 
     if (Test-Path $localCacheFile) {
         $releases = Get-Content $localCacheFile | ConvertFrom-Json
@@ -669,7 +695,7 @@ function Get-GithubReleasesByVersion {
         $page = 1
         $pageSize = 100
         do {
-            $releasesPage = Invoke-RestMethod -Uri "https://api.github.com/repos/${Repository}/releases?per_page=${pageSize}&page=${page}"
+            $releasesPage = Invoke-RestMethod -Uri "https://api.github.com/repos/${Repository}/releases?per_page=${pageSize}&page=${page}" -Headers $headers
             $releases += $releasesPage
             $page++
         } while ($releasesPage.Count -eq $pageSize)

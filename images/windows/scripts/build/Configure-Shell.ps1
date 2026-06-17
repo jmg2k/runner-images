@@ -18,4 +18,9 @@ C:\msys64\usr\bin\bash.exe -leo pipefail %*
 New-Item -ItemType SymbolicLink -Path "$shellPath\gitbash.exe" -Target "$env:ProgramFiles\Git\bin\bash.exe" | Out-Null
 
 # wslbash <--> C:\Windows\System32\bash.exe
-New-Item -ItemType SymbolicLink -Path "$shellPath\wslbash.exe" -Target "$env:SystemRoot\System32\bash.exe" | Out-Null
+$wslBashPath = Join-Path $env:SystemRoot "System32\bash.exe"
+if (Test-Path -LiteralPath $wslBashPath) {
+    New-Item -ItemType SymbolicLink -Path "$shellPath\wslbash.exe" -Target $wslBashPath | Out-Null
+} else {
+    Write-Host "WSL bash shim not present at $wslBashPath; skipping wslbash.exe link creation."
+}

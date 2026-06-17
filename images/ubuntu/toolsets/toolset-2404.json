@@ -203,6 +203,14 @@
             {
                 "package": "docker-ce",
                 "version": "28.0.4"
+            },
+            {
+                "package": "docker-buildx-plugin",
+                "version": "latest"
+            },
+            {
+                "package": "docker-compose-plugin",
+                "version": "2.38.2"
             }
         ],
         "plugins": [
